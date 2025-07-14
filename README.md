@@ -1,4 +1,4 @@
-<img width="1000" height="850" alt="ChatGPT Image Jul 14, 2025, 04_07_32 PM" src="https://github.com/user-attachments/assets/c870a924-deca-4834-9c11-b0b4df874eb2" />
+<img width="800" height="550" alt="ChatGPT Image Jul 14, 2025, 04_07_32 PM" src="https://github.com/user-attachments/assets/c870a924-deca-4834-9c11-b0b4df874eb2" />
 
 # liner
 
