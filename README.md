@@ -1,4 +1,4 @@
-<img width="1200" height="850" alt="ChatGPT Image Jul 14, 2025, 04_07_32 PM" src="https://github.com/user-attachments/assets/c870a924-deca-4834-9c11-b0b4df874eb2" />
+<img width="1000" height="850" alt="ChatGPT Image Jul 14, 2025, 04_07_32 PM" src="https://github.com/user-attachments/assets/c870a924-deca-4834-9c11-b0b4df874eb2" />
 
 # liner
 
@@ -34,7 +34,9 @@ You now have a CLI tool: `./liner`
 ## 🧾 Usage
 
 ```bash
+
 liner [FLAGS] -o [output_name]
+
 ```
 
 ### 🔹 Global Flags
@@ -105,24 +107,6 @@ ssh user@victim 'chmod +x /tmp/setting && /tmp/setting'
 
 ---
 
-## 📦 Project Structure
-
-```
-liner/
-├── cmd/                  # CLI tool (liner.go)
-├── core/                 # Core logic for spyware, telegram, utils
-│   ├── spyware.go
-│   ├── telegram.go
-│   └── utils.go
-├── payloads/             # Payload templates
-│   └── spyware_template.go
-├── build/                # Output binaries or .go files
-├── README.md
-└── go.mod
-```
-
----
-
 ## 📤 Exfiltration Details
 
 - Data collected is zipped or serialized
@@ -141,6 +125,6 @@ Using this tool against systems without explicit permission is **illegal**.
 
 ## 👨‍💻 Author
 
-Developed with ❤️ by [yourname]  
+Developed with ❤️ by [MNM]  
 If you find this useful, give it a ⭐ on GitHub!
 
