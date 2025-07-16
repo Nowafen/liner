@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // sendTelegramMessage sends a text message to Telegram using application/x-www-form-urlencoded
@@ -30,9 +29,7 @@ func sendTelegramMessage(token, chatID, message string, silent bool) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	client := &http.Client{
-		Timeout: 30 * time.Second, // Set timeout to avoid hanging
-	}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		if !silent {
@@ -106,9 +103,7 @@ func SendToTelegram(token, chatID, filePath string, silent bool) error {
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := &http.Client{
-		Timeout: 60 * time.Second, // Increased timeout for file uploads
-	}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		if !silent {
