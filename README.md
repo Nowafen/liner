@@ -142,7 +142,7 @@ unzip liner_data.zip
 ```
 ---
 
-###### 🤝 Contributing
+### 👨‍💻 Contributing
 
 Pull requests and issues are welcome. Let’s improve this project together.
 
