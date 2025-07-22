@@ -157,6 +157,6 @@ For collaboration or usage inquiries, please contact: [https://t.me/mnmsec]
 
 
 
-// Developed by [MNM]
-// Uploaded: July 2025
+###### Developed by [MNM]
+###### Uploaded: July 2025
 
