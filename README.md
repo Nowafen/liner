@@ -153,7 +153,7 @@ This project is **proprietary and closed-source**.
 All rights reserved © 2025 [MNM]  
 Unauthorized copying, distribution, or modification of any part of this codebase is strictly prohibited.
 
-###### For collaboration or usage inquiries, please contact: [t.me](https://t.me/mnmsec)
+###### For collaboration, contact: [t.me](https://t.me/mnmsec)
 
 
 
