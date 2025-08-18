@@ -147,15 +147,6 @@ unzip liner_data.zip
 Pull requests and issues are welcome. Let’s improve this project together.
 
 
-### 📜 License
-
-This project is **proprietary and closed-source**.  
-All rights reserved © 2025 [MNM]  
-Unauthorized copying, distribution, or modification of any part of this codebase is strictly prohibited.
-
-
-
-
 ##### Developed by [MNM]
 ##### Uploaded: July 2025
 
