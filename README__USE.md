@@ -17,52 +17,52 @@ Telegram (optional): A Telegram bot token and chat ID for Telegram-based exfiltr
 
 1. Install Go 1.24.5 on the Victim VM
 
-Remove any existing Go installations:
+### Remove any existing Go installations:
 ```
 sudo apt remove --purge golang golang-* go
 sudo rm -rf /usr/lib/go* /usr/bin/go /usr/local/go ~/.go ~/go
 ```
-Install Go 1.24.5:
+### Install Go 1.24.5:
 ```
 wget https://go.dev/dl/go1.24.5.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go1.24.5.linux-amd64.tar.gz
 ```
-Update ~/.bashrc:
+### Update ~/.bashrc:
 ```
 nano ~/.bashrc
 ```
-Add these lines at the end:
+### Add these lines at the end:
 ```
 export PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
 export PATH=$PATH:$GOPATH/bin
 ```
-Apply changes:
+### Apply changes:
 ```
 source ~/.bashrc
 ```
-Verify Go installation:
+### Verify Go installation:
 ```
 go version
 ```
-Expected output: go version go1.24.5 linux/amd64.
+### Expected output: go version go1.24.5 linux/amd64.
 
 ---
 
 2. Build Liner on the Victim VM
 
-Navigate to the project directory:
+### Navigate to the project directory:
 ```
 cd ~/Desktop/liner
 ```
-Initialize and tidy Go modules:
+### Initialize and tidy Go modules:
 ```
 rm -rf go.mod go.sum
 go mod init liner
 go mod tidy
 ```
-Build the tool:
+### Build the tool:
 ```
 go build -v -mod=mod -o liner ./cmd
 sudo mv liner /usr/bin
