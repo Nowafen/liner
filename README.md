@@ -5,7 +5,7 @@ It targets sensitive artifacts such as credentials, session tokens, private keys
 
 Built in Go, it supports silent operation, automated cleanup, and concurrent file transmission — making it ideal for stealthy, fast, and low-noise data exfiltration in red team operations or adversary simulation.
 
-> ⚠️ **Disclaimer:** This tool is intended **strictly for educational and authorized security testing**. Unauthorized use is illegal and unethical.
+>  **Disclaimer:** This tool is intended **strictly for educational and authorized security testing**. Unauthorized use is illegal and unethical.
 
 ---
 
